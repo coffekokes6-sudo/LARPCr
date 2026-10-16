@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>LarpCraft – Phase 1</title>
+<style>
+:root{--bg:#10131a;--fg:#fff;--panel:rgba(20,24,32,.82);--accent:#5fa83a}
+@media (prefers-color-scheme: dark){:root{--bg:#10131a}}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:ui-monospace,Menlo,Consolas,monospace;touch-action:pan-y;overscroll-behavior:none}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+#cross{position:fixed;left:50%;top:50%;width:18px;height:18px;margin:-9px;pointer-events:none;mix-blend-mode:difference}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff}
+#cross:before{left:8px;top:0;width:2px;height:18px}#cross:after{top:8px;left:0;height:2px;width:18px}
+#hot{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:4px;padding:4px;background:var(--panel);border:3px solid #000}
+.s{width:min(9vw,48px);height:min(9vw,48px);border:3px solid #555;position:relative;display:flex;align-items:flex-end;justify-content:flex-end;font-size:10px;padding:1px 3px}
+.s.on{border-color:#fff}
+#name{position:fixed;left:0;right:0;bottom:calc(70px + env(safe-area-inset-bottom,0px));text-align:center;text-shadow:1px 1px #000;pointer-events:none}
+#info{position:fixed;left:calc(8px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));font-size:12px;text-shadow:1px 1px #000;pointer-events:none}
+#ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5;text-align:center;padding:20px}
+#ov .box{background:var(--panel);border:4px solid #000;padding:20px 26px;max-width:460px}
+h1{margin:0 0 6px;font-size:34px;letter-spacing:2px;color:var(--accent);text-shadow:3px 3px #000}
+button{font:inherit;color:#fff;background:#4a8a2a;border:3px solid #000;padding:10px 22px;margin-top:12px;cursor:pointer;box-shadow:inset -3px -3px #2f5c1a,inset 3px 3px #7cc552}
+small{opacity:.8;display:block;margin-top:8px;line-height:1.5}
+#menu{position:fixed;inset:0;z-index:9;overflow:auto;display:flex;padding:16px;background:linear-gradient(#6fb7e8 0 52%,#5fa83a 52% 60%,#7c5a36 60% 78%,#808080 78%)}
+.panel{margin:auto;background:var(--panel);border:4px solid #000;padding:18px;width:min(92vw,440px);text-align:center}
+.panel button{display:block;width:100%}.panel .row button{flex:1;width:auto;padding:6px;margin-top:4px}
+.g{background:#555;box-shadow:none}button:disabled{opacity:.45}
+input,select{font:inherit;width:100%;padding:8px;margin:4px 0;background:#222;color:#fff;border:3px solid #000;-webkit-user-select:text;user-select:text}
+.w{text-align:left;padding:8px;border:2px solid #000;margin:6px 0;background:rgba(0,0,0,.35)}.row{display:flex;gap:6px;align-items:center;justify-content:space-between}
+label{display:block;text-align:left;margin:8px 0}input[type=color]{width:60px;height:34px;padding:0}
+#touch{display:none}
+.t #touch{display:block}
+#joy{position:fixed;left:calc(24px + env(safe-area-inset-left,0px));bottom:calc(90px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.12);border:3px solid rgba(255,255,255,.35)}
+#knob{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.5)}
+.b{position:fixed;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:12px;right:calc(20px + env(safe-area-inset-right,0px))}
+#bj{bottom:calc(170px + env(safe-area-inset-bottom,0px))}#bb{bottom:calc(95px + env(safe-area-inset-bottom,0px));right:calc(95px + env(safe-area-inset-right,0px))}#bp{bottom:calc(95px + env(safe-area-inset-bottom,0px))}
+</style></head><body>
+<div id="menu"></div><div id="cross"></div><div id="info"></div><div id="name"></div><div id="hot"></div>
+<div id="touch"><div id="joy"><div id="knob"></div></div><div class="b" id="bj">JUMP</div><div class="b" id="bb">BREAK</div><div class="b" id="bp">PLACE</div></div>
+<div id="ov"><div class="box"><h1>LARPCRAFT</h1><div>Phase 1 · Creative sandbox</div>
+<button id="go">Loading…</button><button class="g" onclick="location.reload()">Main menu</button>
+<small id="help"></small></div></div>
+<script src="three.min.js"></script>
+<script>
+function startGame(WID,cfg){const CH=16,H=64;let R=cfg.rd;
+const touch='ontouchstart' in window||navigator.maxTouchPoints>0;
+if(touch){document.body.classList.add('t');R=Math.min(R,3)}
+document.getElementById('help').innerHTML=touch?'Left stick: move · Drag right side: look<br>Buttons: jump / break / place · Tap hotbar to select':'WASD move · Mouse look · Space jump · Shift sprint<br>Left click break · Right click place · 1–9 / wheel select<br>Esc pauses';
+const KEY='lc_w_'+WID;
+let save={};try{save=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const seed=cfg.seed;const mods=save.mods||{};let dirty=false;
+function hash(x,y,z){let h=Math.imul(x,374761393)^Math.imul(y,668265263)^Math.imul(z,1274126177)^Math.imul(seed,1103515245);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+const sm=t=>t*t*(3-2*t);
+function vn(x,z){const xi=Math.floor(x),zi=Math.floor(z),fx=sm(x-xi),fz=sm(z-zi);
+const a=hash(xi,7,zi),b=hash(xi+1,7,zi),c=hash(xi,7,zi+1),d=hash(xi+1,7,zi+1);
+return a+(b-a)*fx+(c-a)*fz+(a-b-c+d)*fx*fz}
+function height(x,z){if(cfg.flat)return 24;const n=vn(x*.015,z*.015)*.6+vn(x*.04,z*.04)*.3+vn(x*.1,z*.1)*.1;return Math.floor(18+n*26)}
+const B={GRASS:1,DIRT:2,STONE:3,SAND:4,GRAVEL:5,BEDROCK:6,WOOD:7,LEAVES:8,PLANKS:9,GLASS:10,COAL:11,IRON:12,GOLD:13,DIAMOND:14,TORCH:15,TABLE:16};
+const INFO={1:['Grass',[0x5fa83a,0x7c6a42,0x7c5a36]],2:['Dirt',[0x7c5a36]],3:['Stone',[0x808080]],4:['Sand',[0xdbcf94]],5:['Gravel',[0x8a8584]],6:['Bedrock',[0x303030]],7:['Wood',[0x8a6a3a,0x6b4f2a,0x8a6a3a]],8:['Leaves',[0x2f7d2f]],9:['Planks',[0xb88a4f]],10:['Glass',[0xbfeaf5]],11:['Coal Ore',[0x4a4a4a]],12:['Iron Ore',[0xc9a58a]],13:['Gold Ore',[0xe6c84a]],14:['Diamond Ore',[0x4fe0d6]],15:['Torch',[0xffd24a]],16:['Crafting Table',[0xb88a4f,0x9a6b3a,0x7c5a36]]};
+const rgb=h=>[(h>>16)/255,((h>>8)&255)/255,(h&255)/255];
+for(const k in INFO){INFO[k][2]=INFO[k][1].map(rgb)}
+const chunks=new Map(),meshes=new Map();
+const ck=(cx,cz)=>cx+','+cz;
+function gen(cx,cz){const d=new Uint8Array(CH*CH*H);
+for(let z=0;z<CH;z++)for(let x=0;x<CH;x++){const wx=cx*CH+x,wz=cz*CH+z,h=height(wx,wz);
+for(let y=0;y<=h;y++){let b;
+if(y===0)b=6;else if(y<h-3){b=3;const r=hash(wx,y,wz);
+if(y<12&&r<.0015)b=14;else if(y<20&&r<.004)b=13;else if(y<35&&r<.01)b=12;else if(r<.02)b=11;else if(y<h-8&&r>.985)b=5}
+else if(y<h)b=h<=21?4:2;else b=h<=21?4:1;
+d[x+CH*(z+CH*y)]=b}
+if(h>21&&x>2&&x<13&&z>2&&z<13&&hash(wx,99,wz)<.012){const th=4+Math.floor(hash(wx,98,wz)*2);
+for(let y=1;y<=th;y++)d[x+CH*(z+CH*(h+y))]=7;
+for(let dy=th-1;dy<=th+1;dy++)for(let dz=-2;dz<=2;dz++)for(let dx=-2;dx<=2;dx++){
+const r=dy===th+1?1:2;if(Math.abs(dx)+Math.abs(dz)>r+1||(dx===0&&dz===0&&dy<=th))continue;
+const i=(x+dx)+CH*((z+dz)+CH*(h+dy+1));if(!d[i])d[i]=8}}}
+const m=mods[ck(cx,cz)];if(m)for(const i in m)d[i]=m[i];
+return d}
+function chunk(cx,cz){const k=ck(cx,cz);let c=chunks.get(k);if(!c){c=gen(cx,cz);chunks.set(k,c)}return c}
+function get(x,y,z){if(y<0||y>=H)return 0;const cx=Math.floor(x/CH),cz=Math.floor(z/CH);
+return chunk(cx,cz)[(x-cx*CH)+CH*((z-cz*CH)+CH*y)]}
+const FD=[[1,0,0,[[1,0,1],[1,0,0],[1,1,0],[1,1,1]],.8],[-1,0,0,[[0,0,0],[0,0,1],[0,1,1],[0,1,0]],.8],[0,1,0,[[0,1,1],[1,1,1],[1,1,0],[0,1,0]],1],[0,-1,0,[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],.5],[0,0,1,[[0,0,1],[1,0,1],[1,1,1],[0,1,1]],.65],[0,0,-1,[[1,0,0],[0,0,0],[0,1,0],[1,1,0]],.65]];
+const scene=new THREE.Scene(),renderer=new THREE.WebGLRenderer({antialias:!touch});
+renderer.setPixelRatio(Math.min(devicePixelRatio,touch?1.5:2));document.body.prepend(renderer.domElement);
+const cam=new THREE.PerspectiveCamera(cfg.fov,1,.1,400);cam.rotation.order='YXZ';
+const mat=new THREE.MeshLambertMaterial({vertexColors:true});
+function build(cx,cz){const d=chunk(cx,cz),P=[],C=[],N=[],I=[];let n=0;
+for(let y=0;y<H;y++)for(let z=0;z<CH;z++)for(let x=0;x<CH;x++){const b=d[x+CH*(z+CH*y)];if(!b)continue;
+const wx=cx*CH+x,wz=cz*CH+z,col=INFO[b][2];
+for(let f=0;f<6;f++){const F=FD[f],nb=get(wx+F[0],y+F[1],wz+F[2]);
+if(nb&&!(nb===10&&b!==10))continue;
+const c=col[f===2?0:f===3?col.length-1:Math.min(1,col.length-1)],s=F[4]*(.92+.08*hash(wx*3+f,y,wz));
+for(const v of F[3]){P.push(wx+v[0],y+v[1],wz+v[2]);C.push(c[0]*s,c[1]*s,c[2]*s);N.push(F[0],F[1],F[2])}
+I.push(n,n+1,n+2,n,n+2,n+3);n+=4}}
+const g=new THREE.BufferGeometry();
+g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setIndex(I);
+g.computeBoundingSphere();const m=new THREE.Mesh(g,mat);scene.add(m);return m}
+function remesh(cx,cz){const k=ck(cx,cz),o=meshes.get(k);if(!o)return;scene.remove(o);o.geometry.dispose();meshes.set(k,build(cx,cz))}
+function setBlock(x,y,z,id){if(y<0||y>=H)return;const cx=Math.floor(x/CH),cz=Math.floor(z/CH),lx=x-cx*CH,lz=z-cz*CH,i=lx+CH*(lz+CH*y);
+chunk(cx,cz)[i]=id;const k=ck(cx,cz);(mods[k]=mods[k]||{})[i]=id;dirty=true;remesh(cx,cz);
+if(lx===0)remesh(cx-1,cz);if(lx===CH-1)remesh(cx+1,cz);if(lz===0)remesh(cx,cz-1);if(lz===CH-1)remesh(cx,cz+1)}
+const sun=new THREE.DirectionalLight(0xffffff,.9),amb=new THREE.AmbientLight(0xffffff,.5);scene.add(sun,amb);
+scene.fog=new THREE.Fog(0x87ceeb,R*CH*.5,R*CH*.95);
+const hl=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004,1.004,1.004)),new THREE.LineBasicMaterial({color:0}));hl.visible=false;scene.add(hl);
+// player
+const pl={x:8.5,y:40,z:8.5,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:false};
+function solid(x,y,z){const b=get(x,y,z);return b!==0}
+function hits(px,py,pz){const e=.001;for(let y=Math.floor(py+e);y<=Math.floor(py+1.8-e);y++)for(let z=Math.floor(pz-.3+e);z<=Math.floor(pz+.3-e);z++)for(let x=Math.floor(px-.3+e);x<=Math.floor(px+.3-e);x++)if(solid(x,y,z))return true;return false}
+function move(dx,dy,dz){const st=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/.3));dx/=st;dy/=st;dz/=st;
+for(let i=0;i<st;i++){
+if(hits(pl.x+dx,pl.y,pl.z))pl.vx=0;else pl.x+=dx;
+if(hits(pl.x,pl.y,pl.z+dz))pl.vz=0;else pl.z+=dz;
+if(hits(pl.x,pl.y+dy,pl.z)){if(dy<0)pl.ground=true;pl.vy=0;dy=0}else pl.y+=dy}}
+function spawn(){let y=H-1;while(y>0&&!get(8,y,8))y--;Object.assign(pl,{x:8.5,y:y+1.01,z:8.5,vy:0})}
+if(save.pos){chunk(Math.floor(save.pos[0]/CH),Math.floor(save.pos[2]/CH));pl.x=save.pos[0];pl.y=save.pos[1];pl.z=save.pos[2];pl.yaw=save.yaw||0;pl.pitch=save.pitch||0}else spawn();
+// hotbar
+const hotIds=[1,2,3,4,9,7,8,10,16];let sel=0;const hot=document.getElementById('hot'),nm=document.getElementById('name');
+hotIds.forEach((id,i)=>{const s=document.createElement('div');s.className='s';s.style.background='#'+INFO[id][1][0].toString(16).padStart(6,'0');s.textContent=i+1;s.addEventListener('pointerdown',e=>{e.preventDefault();select(i)});hot.appendChild(s)});
+function select(i){sel=(i+9)%9;[...hot.children].forEach((c,j)=>c.classList.toggle('on',j===sel));nm.textContent=INFO[hotIds[sel]][0]}select(0);
+// input
+const keys={};let active=false,jump=false,mv={x:0,y:0};
+addEventListener('keydown',e=>{if(e.code==='Space')e.preventDefault();keys[e.code]=true;if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1)});
+addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('wheel',e=>{if(active)select(sel+(e.deltaY>0?1:-1))},{passive:true});
+addEventListener('contextmenu',e=>e.preventDefault());
+const cv=renderer.domElement,go=document.getElementById('go'),ov=document.getElementById('ov');
+function start(){ov.style.display='none';active=true;if(!touch)cv.requestPointerLock()}
+go.onclick=start;
+document.addEventListener('pointerlockchange',()=>{if(!touch&&document.pointerLockElement!==cv){active=false;ov.style.display='flex';go.textContent='Resume'}});
+addEventListener('mousemove',e=>{if(!active||touch)return;pl.yaw-=e.movementX*.0022*cfg.sens;pl.pitch=Math.max(-1.55,Math.min(1.55,pl.pitch-e.movementY*.0022*cfg.sens))});
+addEventListener('mousedown',e=>{if(!active||touch)return;if(e.button===0)brk();else if(e.button===2)put()});
+// touch
+const joy=document.getElementById('joy'),knob=document.getElementById('knob');let jid=null,lid=null,jo=null,lp=null;
+addEventListener('touchstart',e=>{if(!active)return;for(const t of e.changedTouches){const el=document.elementFromPoint(t.clientX,t.clientY);
+if(el===joy||el===knob){jid=t.identifier;const r=joy.getBoundingClientRect();jo=[r.left+60,r.top+60]}
+else if(t.clientX>innerWidth*.4&&lid===null&&!(el&&(el.classList.contains('b')||el.classList.contains('s')))){lid=t.identifier;lp=[t.clientX,t.clientY]}}},{passive:false});
+addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches){
+if(t.identifier===jid){let dx=t.clientX-jo[0],dy=t.clientY-jo[1];const l=Math.hypot(dx,dy),m=40;if(l>m){dx*=m/l;dy*=m/l}knob.style.left=40+dx+'px';knob.style.top=40+dy+'px';mv={x:dx/m,y:dy/m}}
+else if(t.identifier===lid){pl.yaw-=(t.clientX-lp[0])*.006;pl.pitch=Math.max(-1.55,Math.min(1.55,pl.pitch-(t.clientY-lp[1])*.006));lp=[t.clientX,t.clientY]}}},{passive:false});
+function tend(e){for(const t of e.changedTouches){if(t.identifier===jid){jid=null;mv={x:0,y:0};knob.style.left=knob.style.top='40px'}if(t.identifier===lid)lid=null}}
+addEventListener('touchend',tend);addEventListener('touchcancel',tend);
+const bind=(id,f)=>document.getElementById(id).addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();f(true)},{passive:false});
+bind('bj',()=>{jump=true;setTimeout(()=>jump=false,150)});bind('bb',brk);bind('bp',put);
+// raycast
+function ray(){const o=cam.position,d=cam.getWorldDirection(new THREE.Vector3());let x=Math.floor(o.x),y=Math.floor(o.y),z=Math.floor(o.z);
+const sx=Math.sign(d.x),sy=Math.sign(d.y),sz=Math.sign(d.z),dx=Math.abs(1/d.x),dy=Math.abs(1/d.y),dz=Math.abs(1/d.z);
+let tx=d.x?(sx>0?x+1-o.x:o.x-x)*dx:1e9,ty=d.y?(sy>0?y+1-o.y:o.y-y)*dy:1e9,tz=d.z?(sz>0?z+1-o.z:o.z-z)*dz:1e9,n=[0,0,0],t=0;
+while(t<6){if(get(x,y,z))return{x,y,z,n};
+if(tx<ty&&tx<tz){x+=sx;t=tx;tx+=dx;n=[-sx,0,0]}else if(ty<tz){y+=sy;t=ty;ty+=dy;n=[0,-sy,0]}else{z+=sz;t=tz;tz+=dz;n=[0,0,-sz]}}return null}
+function brk(){const h=ray();if(h&&get(h.x,h.y,h.z)!==6)setBlock(h.x,h.y,h.z,0)}
+function put(){const h=ray();if(!h)return;const x=h.x+h.n[0],y=h.y+h.n[1],z=h.z+h.n[2];
+if(y<1||y>=H||get(x,y,z))return;
+if(pl.x+.3>x&&pl.x-.3<x+1&&pl.y+1.8>y&&pl.y<y+1&&pl.z+.3>z&&pl.z-.3<z+1)return;
+setBlock(x,y,z,hotIds[sel])}
+// chunk streaming
+let queue=[],lastC='';
+function plan(){const pcx=Math.floor(pl.x/CH),pcz=Math.floor(pl.z/CH),c=pcx+','+pcz;if(c===lastC)return;lastC=c;queue=[];
+for(let dz=-R;dz<=R;dz++)for(let dx=-R;dx<=R;dx++){if(dx*dx+dz*dz>R*R+1)continue;const k=ck(pcx+dx,pcz+dz);if(!meshes.has(k))queue.push([pcx+dx,pcz+dz,dx*dx+dz*dz])}
+queue.sort((a,b)=>a[2]-b[2]);
+for(const[k,m]of meshes){const[x,z]=k.split(',').map(Number);if(Math.abs(x-pcx)>R+1||Math.abs(z-pcz)>R+1){scene.remove(m);m.geometry.dispose();meshes.delete(k)}}
+for(const k of chunks.keys()){const[x,z]=k.split(',').map(Number);if((Math.abs(x-pcx)>R+2||Math.abs(z-pcz)>R+2))chunks.delete(k)}}
+function pump(n){while(n--&&queue.length){const q=queue.shift(),k=ck(q[0],q[1]);if(!meshes.has(k))meshes.set(k,build(q[0],q[1]))}}
+function doSave(){if(!dirty&&!doSave.f)return;try{localStorage.setItem(KEY,JSON.stringify({seed,mods,pos:[pl.x,pl.y,pl.z],yaw:pl.yaw,pitch:pl.pitch}));dirty=false;doSave.f=false}catch(e){}}
+setInterval(()=>{doSave.f=true;doSave()},5000);addEventListener('beforeunload',()=>{doSave.f=true;doSave()});
+document.addEventListener('visibilitychange',()=>{doSave.f=true;doSave()});
+// loop
+const skyD=new THREE.Color(0x87ceeb),skyN=new THREE.Color(0x090d1c),sky=new THREE.Color();
+let tod=.25,last=performance.now(),fps=0,fc=0,ft=0;const info=document.getElementById('info');
+function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+function frame(now){requestAnimationFrame(frame);const dt=Math.min(.05,(now-last)/1000);last=now;
+if(active){let fx=0,fz=0;
+if(keys.KeyW)fz-=1;if(keys.KeyS)fz+=1;if(keys.KeyA)fx-=1;if(keys.KeyD)fx+=1;
+fx+=mv.x;fz+=mv.y;const l=Math.hypot(fx,fz);if(l>1){fx/=l;fz/=l}
+const sp=(keys.ShiftLeft||keys.ShiftRight)?7:4.5,c=Math.cos(pl.yaw),s=Math.sin(pl.yaw);
+pl.vx=(fx*c+fz*s)*sp;pl.vz=(-fx*s+fz*c)*sp;
+if((keys.Space||jump)&&pl.ground){pl.vy=9;pl.ground=false}
+pl.vy=Math.max(-40,pl.vy-28*dt);pl.ground=false;move(pl.vx*dt,pl.vy*dt,pl.vz*dt);
+if(pl.y<-20)spawn();tod=(tod+dt/240)%1}
+plan();pump(2);
+cam.position.set(pl.x,pl.y+1.62,pl.z);cam.rotation.y=pl.yaw;cam.rotation.x=pl.pitch;
+const a=tod*Math.PI*2,day=Math.max(0,Math.min(1,Math.sin(a)*1.5+.5));
+sky.copy(skyN).lerp(skyD,day);scene.background=sky;scene.fog.color.copy(sky);
+sun.position.set(pl.x+Math.cos(a)*100,pl.y+Math.sin(a)*100+10,pl.z+30);sun.target.position.set(pl.x,pl.y,pl.z);sun.target.updateMatrixWorld();
+sun.intensity=.15+.8*day;amb.intensity=.18+.4*day;
+const h=active?ray():null;hl.visible=!!h;if(h)hl.position.set(h.x+.5,h.y+.5,h.z+.5);
+renderer.render(scene,cam);
+fc++;ft+=dt;if(ft>=.5){fps=Math.round(fc/ft);fc=0;ft=0;info.textContent=fps+' FPS · XYZ '+pl.x.toFixed(0)+' '+pl.y.toFixed(0)+' '+pl.z.toFixed(0)+' · seed '+seed}}
+// initial load
+const pcx=Math.floor(pl.x/CH),pcz=Math.floor(pl.z/CH);
+for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++)meshes.set(ck(pcx+dx,pcz+dz),build(pcx+dx,pcz+dz));
+lastC='';ov.style.display='flex';go.textContent=touch?'Tap to play':'Click to play';requestAnimationFrame(frame);}
+</script>
+<script>
+const $=id=>document.getElementById(id),LS=localStorage,menu=$('menu');
+const J=(k,d)=>{try{return JSON.parse(LS.getItem(k))||d}catch(e){return d}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+let U=LS.getItem('lc_cur')||'',S,W,CHR;const K=k=>U?k+':'+U:k,dn=()=>(J('lc_users',{})[U]||{name:U}).name;
+function loadAll(){S={rd:4,fov:75,sens:1,...J(K('lc_set'),{})};W=J(K('lc_worlds'),[]);CHR={skin:'#e0ac69',hair:'#4b2e1a',shirt:'#3b82f6',pants:'#374151',...J(K('lc_char'),{})}}loadAll();
+const persist=()=>{LS.setItem(K('lc_set'),JSON.stringify(S));LS.setItem(K('lc_worlds'),JSON.stringify(W));LS.setItem(K('lc_char'),JSON.stringify(CHR))};
+const panel=h=>menu.innerHTML='<div class="panel">'+h+'</div>';
+const back='<button class="g" onclick="home()">← Back</button>',H2=t=>`<h1 style="font-size:26px">${t}</h1>`;
+function home(){panel(`<h1>LARPCRAFT</h1><small>Original voxel game · not an official Minecraft product</small><br><button onclick="worlds()">▶ Play / My Worlds</button><button onclick="mp()">Multiplayer</button><button onclick="chr()">Character</button><button onclick="set()">Settings</button><button onclick="cred()">Credits</button>${U?`<small>Logged in as <b>${esc(dn())}</b></small><div class="row"><button class="g" onclick="prof()">Profile</button><button class="g" onclick="logout()">Logout</button></div>`:`<small>Guest: saves on this device. Log in to keep your own worlds, settings and character.</small><div class="row"><button class="g" onclick="acct('Login')">Login</button><button class="g" onclick="acct('Register')">Register</button></div>`}`)}
+function worlds(q=''){const L=W.filter(w=>w.name.toLowerCase().includes(q.toLowerCase())).sort((a,b)=>b.played-a.played);
+panel(H2('My Worlds')+`<input placeholder="Search worlds (Enter)" value="${esc(q)}" onchange="worlds(this.value)">`+(L.length?L.map(w=>`<div class="w"><b>${esc(w.name)}</b><small>seed ${w.seed} · ${w.flat?'Flat':'Procedural'} · Creative<br>created ${new Date(w.created).toLocaleDateString()} · played ${w.played?new Date(w.played).toLocaleDateString():'never'}</small><div class="row"><button onclick="play('${w.id}')">Play</button><button class="g" onclick="ren('${w.id}')">Rename</button><button class="g" onclick="dup('${w.id}')">Copy</button><button class="g" onclick="del('${w.id}')">Delete</button></div></div>`).join(''):'<p>No worlds yet. Create your first one!</p>')+'<button onclick="newW()">+ Create World</button>'+back)}
+function newW(){panel(H2('Create World')+'<input id="nm" placeholder="World name" value="New World"><input id="sd" placeholder="Seed (blank = random)"><select id="fl"><option value="0">Terrain: Procedural</option><option value="1">Terrain: Flat</option></select><select disabled><option>Mode: Creative</option><option>Survival (Phase 2)</option></select><button onclick="mk()">Create &amp; Play</button><button class="g" onclick="worlds()">Cancel</button>')}
+function mk(){let s=$('sd').value.trim(),n=0;if(!s)n=Math.floor(Math.random()*1e9);else if(/^-?\d{1,9}$/.test(s))n=+s;else for(const c of s)n=(Math.imul(n,31)+c.charCodeAt(0))|0;
+const w={id:Date.now().toString(36),name:($('nm').value.trim()||'New World').slice(0,32),seed:n,flat:$('fl').value==='1',created:Date.now(),played:0};W.push(w);persist();play(w.id)}
+function play(id){const w=W.find(x=>x.id===id);w.played=Date.now();persist();menu.style.display='none';startGame(id,{seed:w.seed,flat:w.flat,rd:S.rd,fov:S.fov,sens:S.sens})}
+function ren(id){const w=W.find(x=>x.id===id),n=prompt('Rename world',w.name);if(n&&n.trim()){w.name=n.trim().slice(0,32);persist()}worlds()}
+function dup(id){const w=W.find(x=>x.id===id),c={...w,id:Date.now().toString(36),name:w.name+' (copy)',created:Date.now(),played:0},d=LS.getItem('lc_w_'+id);if(d)LS.setItem('lc_w_'+c.id,d);W.push(c);persist();worlds()}
+function del(id){const w=W.find(x=>x.id===id);if(confirm('Delete "'+w.name+'" permanently?')){W=W.filter(x=>x.id!==id);LS.removeItem('lc_w_'+id);persist()}worlds()}
+function set(){panel(H2('Settings')+[['Render distance (chunks)','rd',2,8,1],['Field of view','fov',60,110,1],['Mouse sensitivity','sens',.3,2,.1]].map(([l,k,a,b,s])=>`<label>${l}: <b id="v${k}">${S[k]}</b><input type="range" min="${a}" max="${b}" step="${s}" value="${S[k]}" oninput="S['${k}']=+this.value;$('v${k}').textContent=this.value;persist()"></label>`).join('')+'<small>Sound, key remapping and language come in later phases.</small>'+back)}
+function pv(){const e=$('pv');if(e)e.innerHTML=`<div style="width:40px;margin:auto"><div style="height:40px;background:${CHR.skin};border-top:12px solid ${CHR.hair};box-sizing:border-box"></div><div style="height:56px;background:${CHR.shirt};box-shadow:-14px 0 0 ${CHR.skin},14px 0 0 ${CHR.skin}"></div><div style="height:44px;background:${CHR.pants}"></div></div>`}
+function chr(){const f=(k,l)=>`<label class="row">${l}<input type="color" value="${CHR[k]}" oninput="CHR['${k}']=this.value;persist();pv()"></label>`;panel(H2('Character')+'<div id="pv"></div>'+f('skin','Skin')+f('hair','Hair')+f('shirt','Shirt')+f('pants','Pants')+'<small>Saved on this device. It shows in-game once multiplayer exists; account sync needs the backend.</small>'+back);pv()}
+function mp(){panel(H2('Multiplayer')+(U?'<small>Signed in as '+esc(dn())+'. Your character will be used online once a server is connected.</small>':'')+'<p>No multiplayer server is configured.</p><small>Real multiplayer needs an authoritative WebSocket server. A static hosted page can neither run nor reach one, so rooms are disabled rather than faked. Single-player is unaffected.</small><input placeholder="Server URL (wss://…)" disabled><button disabled>Create private room</button><button disabled>Join with code</button>'+back)}
+const hex=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''),unhex=s=>new Uint8Array(s.match(/../g).map(h=>parseInt(h,16)));
+async function hp(pw,salt){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);return hex(new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},k,256)))}
+function acct(t,err=''){const reg=t==='Register';panel(H2(t)+`<input id="un" placeholder="Username" autocomplete="username" maxlength="16"><input id="pw" type="password" placeholder="Password" autocomplete="${reg?'new':'current'}-password">`+(reg?'<input id="pw2" type="password" placeholder="Confirm password">':'')+`<label class="row"><span>Show password</span><input type="checkbox" style="width:auto" onchange="$('pw').type=this.checked?'text':'password'"></label><p style="color:#f87171;margin:6px 0">${esc(err)}</p><button onclick="doAcct('${t}')">${t}</button><small>Stored on this device only (salted PBKDF2 hash). Anyone with access to this device's app data can reach it, and a forgotten password cannot be recovered.</small>`+back)}
+let fails=0,lock=0;
+async function doAcct(t){const u=$('un').value.trim(),p=$('pw').value,us=J('lc_users',{}),key=u.toLowerCase(),e=m=>acct(t,m);
+if(!crypto.subtle)return e('Needs a secure (https) context');
+if(t==='Register'){if(!/^[A-Za-z0-9_]{3,16}$/.test(u))return e('Username: 3-16 letters, numbers or _');if(us[key])return e('Username already taken on this device');if(p.length<8||!/\d/.test(p)||!/[A-Za-z]/.test(p))return e('Password: 8+ characters with a letter and a number');if(p!==$('pw2').value)return e('Passwords do not match');
+const s=crypto.getRandomValues(new Uint8Array(16));us[key]={name:u,salt:hex(s),hash:await hp(p,s)};LS.setItem('lc_users',JSON.stringify(us));
+for(const k of['lc_set','lc_worlds','lc_char'])if(LS.getItem(k))LS.setItem(k+':'+key,LS.getItem(k))}
+else{if(Date.now()<lock)return e('Too many attempts, wait 30 seconds');const r=us[key];if(!r||await hp(p,unhex(r.salt))!==r.hash){if(++fails>=5){lock=Date.now()+3e4;fails=0}return e('Incorrect username or password')}}
+LS.setItem('lc_cur',key);U=key;loadAll();home()}
+function logout(){LS.removeItem('lc_cur');U='';loadAll();home()}
+function prof(){panel(H2(esc(dn()))+`<p>${W.length} world(s) saved in this account</p><button onclick="logout()">Logout</button><button class="g" onclick="delAcc()">Delete account &amp; its data</button>`+back)}
+function delAcc(){if(!confirm('Delete this account and all its worlds permanently?'))return;const us=J('lc_users',{});W.forEach(w=>LS.removeItem('lc_w_'+w.id));for(const k of['lc_set','lc_worlds','lc_char'])LS.removeItem(k+':'+U);delete us[U];LS.setItem('lc_users',JSON.stringify(us));logout()}
+function cred(){panel(H2('Credits')+'<small>LarpCraft Phase 1 prototype<br>Built with Three.js · all visuals are original, no Minecraft assets.</small><br>'+back)}
+home();
+</script></body></html>
